@@ -1,0 +1,86 @@
+
+DEP_FILE = .$(shell pwd | sed 's|/||g').depend
+
+CC = gcc -Wall -g -std=c99 -Werror -O2
+# PROFILER_FLAGS += -fprofile-arcs
+# PROFILER_FLAGS += -ftest-coverage
+# PROFILER_FLAGS += -pg
+
+
+API_KEY = ABQIAAAA6XiHDpcsqAh_lkCa-i9IhRSrjImo17bplOTDZGGN7zpi_Wuk3w
+
+CFLAGS += -I ../../../include -I ../../../  -I ../ -I ../../ -DHAVE_CONFIG_H -DINTEGRATION -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -D_EVENT_HAVE_PTHREADS=1
+#CFLAGS += $(shell $(HOME)/local/bin/curl-config --cflags)
+CFLAGS += $(shell curl-config --cflags)
+CFLAGS += $(shell pkg-config libcrypto --cflags)
+CFLAGS += $(shell pkg-config hiredis --cflags)
+CFLAGS += $(shell pkg-config libevent --cflags)
+CFLAGS += -DAPI_KEY=\"$(API_KEY)\"
+CFLAGS += -DLOGGER_CALLER_LOCATION_BEFORE_MESSAGE=1
+#CFLAGS += -DSB_ALL_KNOWN_LIST=1
+#CFLAGS += -DC_SB_NOTHREAD
+CFLAGS += -DC_SB_WAIT_INIT
+CFLAGS += $(PROFILER_FLAGS)
+CFLAGS += -I /home/njagabar/wdir/trunk/include
+CFLAGS += -I /home/njagabar/wdir/trunk
+
+
+LDFLAGS = -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free -Wl,-wrap,strdup -Wl,-wrap,__strdup -Wl,-wrap,strndup -Wl,-wrap,__strndup
+#LDFLAGS += $(shell $(HOME)/local/bin/curl-config --libs)
+LDFLAGS += $(shell curl-config --libs)
+LDFLAGS += $(shell pkg-config libcrypto --libs)
+LDFLAGS += $(shell pkg-config hiredis --libs)
+LDFLAGS += $(shell pkg-config libevent --libs)
+LDFLAGS += -pthread
+LDFLAGS += $(PROFILER_FLAGS)
+
+QUALYS_LIB = logger.o util.o redis.o command.o httpreq.o buffer.o tpool.o xmalloc.o
+
+VPATH  = ../../../libmps
+VPATH += ../
+VPATH += ../../../..
+VPATH += /home/njagabar/wdir/trunk/libmps
+VPATH += /home/njagabar/wdir/trunk/consumerd/broker
+
+
+EXE = dummy_test sample
+
+.PHONY: all
+all: $(DEP_FILE) $(EXE)
+
+.PHONY: clean
+clean:
+	rm -f $(EXE) $(DEP_FILE) *~ *.o core *.tab.c *.gcda *.gcno *.gcov gmon.out vgcore.*
+
+dummy_test: $(QUALYS_LIB) dummy_test.o sb.o sbdb.o sbcache.o rwlock.o c_sb.o
+	$(CC) $(LDFLAGS) $^ -o $@
+
+sample: $(QUALYS_LIB) sample.o sb.o sbdb.o sbcache.o rwlock.o
+	$(CC) $(LDFLAGS) $^ -o $@
+
+
+gen_path: $(QUALYS_LIB) gen_path.o
+	$(CC) $(LDFLAGS) $^ -o $@
+
+%.o: %.c Makefile
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.tab.c: %.c
+	$(CC) $(CFLAGS) -E $^ -o $@
+
+.PHONY: dep
+$(DEP_FILE) dep: Makefile
+	$(CC) $(CFLAGS) -MM -MG *.c ../../c_sb.c > $(DEP_FILE)
+
+re:
+	$(MAKE) clean all
+
+%.check:
+	wget "https://sb-ssl.google.com/safebrowsing/api/lookup?client=demo-app&apikey=$(API_KEY)&appver=1.5.2&pver=3.0&url=$<"
+
+
+ifeq ($(DEP_FILE),$(wildcard $(DEP_FILE)))
+include $(DEP_FILE)
+endif
+
+# wget 'https://sb-ssl.google.com/safebrowsing/api/lookup?client=demo-app&apikey=ABQIAAAA6XiHDpcsqAh_lkCa-i9IhRSrjImo17bplOTDZGGN7zpi_Wuk3w&appver=1.5.2&pver=3.0&url=http://ianfette.org/'
